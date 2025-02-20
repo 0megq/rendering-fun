@@ -1,0 +1,9 @@
+2/20
+
+Start of "Hello Triangle"
+Learned basics of the graphics pipeline and vertex buffer object
+
+2/19
+
+Started this whole thing
+Did everything up to "Hello Window"
