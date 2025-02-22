@@ -2,8 +2,13 @@ package main
 
 import "core:fmt"
 import "core:strings"
+import "core:time"
 import gl "vendor:OpenGL"
 import "vendor:glfw"
+
+Vertex :: struct {
+	pos: [3]f32,
+}
 
 
 main :: proc() {
@@ -33,22 +38,23 @@ main :: proc() {
 	gl.Viewport(0, 0, 640, 480)
 	glfw.SetFramebufferSizeCallback(window, resize_callback)
 
-
 	// vertex shader setup
 	vertex_shader_source: cstring = strings.clone_to_cstring(
 		`
 		#version 330 core
 
-		layout(location = 0) in vec3 aPos;
+		layout(location = 0) in vec3 aPos; // xyz
+
+		uniform float uTime; // time in milliseconds
 
 		void main()
 		{
-			gl_Position = vec4(aPos, 1.0); // this format
+			float offset = 0.5 * sin(uTime);
+			gl_Position = vec4(aPos.x + offset, aPos.y, aPos.z, 1.0); // this format
 		}
 	`,
 	)
 	defer delete(vertex_shader_source)
-
 
 	vertex_shader: u32 = gl.CreateShader(gl.VERTEX_SHADER)
 
@@ -73,7 +79,7 @@ main :: proc() {
 
 		void main()
 		{
-			FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);
+			FragColor = vec4(1.0f, 0.1f, 0.2f, 1.0f);
 		}
 	`,
 	)
@@ -98,7 +104,7 @@ main :: proc() {
 	gl.AttachShader(shader_program, fragment_shader)
 	gl.LinkProgram(shader_program)
 
-	gl.GetProgramiv(shader_program, gl.COMPILE_STATUS, &success)
+	gl.GetProgramiv(shader_program, gl.LINK_STATUS, &success)
 	if success == 0 {
 		gl.GetProgramInfoLog(shader_program, 512, nil, &info_log[0])
 		fmt.printf("ERROR::SHADER::PROGRAM::LINKING_FAILED\n%s\n", info_log)
@@ -109,7 +115,7 @@ main :: proc() {
 	gl.DeleteShader(fragment_shader)
 
 
-	verts: [9]f32 = {-0.5, -0.5, 0.0, 0.5, -0.5, 0.0, 0.5, 0.5, 0.0}
+	verts: [3]Vertex = {{{-0.5, -0.5, 0.0}}, {{0.5, -0.5, 0.0}}, {{0.0, 0.5, 0.0}}}
 
 	// an OpenGL object
 	VBO, VAO: u32 // Vertex Buffer Object: stores a large number of vertices in the GPU's memory. Allows us to batch CPU -> GPU transfer
@@ -150,18 +156,26 @@ main :: proc() {
 	gl.BindBuffer(gl.ARRAY_BUFFER, 0)
 
 	// gl.PolygonMode(gl.FRONT_AND_BACK, gl.LINE) for a wireframe
+	time_location := gl.GetUniformLocation(shader_program, "uTime")
+	if time_location == -1 {
+		fmt.println("Failed to find uniform location for 'uTime'")
+		return
+	}
 
+	start_time := time.now()
 	gl.ClearColor(0.2, 0.3, 0.3, 1.0)
 	for !glfw.WindowShouldClose(window) {
+		current_time := f32(time.duration_seconds(time.since(start_time)))
 		// render
 		gl.Clear(gl.COLOR_BUFFER_BIT)
 
 		// draw our first triangle
 		gl.UseProgram(shader_program)
+		gl.Uniform1f(time_location, current_time)
+
 		gl.BindVertexArray(VAO) // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
 		gl.DrawArrays(gl.TRIANGLES, 0, 3)
 		// glBindVertexArray(0); // no need to unbind it every time 
-
 
 		glfw.SwapBuffers(window)
 		glfw.PollEvents()
