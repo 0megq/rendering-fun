@@ -115,10 +115,17 @@ main :: proc() {
 	gl.DeleteShader(fragment_shader)
 
 
-	verts: [3]Vertex = {{{-0.5, -0.5, 0.0}}, {{0.5, -0.5, 0.0}}, {{0.0, 0.5, 0.0}}}
+	verts: [4]Vertex = {
+		{{0.5, 0.5, 0.0}},
+		{{0.5, -0.5, 0.0}},
+		{{-0.5, -0.5, 0.0}},
+		{{-0.5, 0.5, 0.0}},
+	}
+
+	indices := [?]u32{0, 1, 3, 1, 2, 3}
 
 	// an OpenGL object
-	VBO, VAO: u32 // Vertex Buffer Object: stores a large number of vertices in the GPU's memory. Allows us to batch CPU -> GPU transfer
+	VBO, VAO, EBO: u32 // Vertex Buffer Object: stores a large number of vertices in the GPU's memory. Allows us to batch CPU -> GPU transfer
 	// Vertex Array Object
 	// stores:
 	// calls to glEnableVertexAttribArray and disable
@@ -126,6 +133,7 @@ main :: proc() {
 	// VBO's associatesed with vertex attributes by calls to glVertexAttribPointe
 	gl.GenVertexArrays(1, &VAO)
 	gl.GenBuffers(1, &VBO)
+	gl.GenBuffers(1, &EBO)
 
 	// bind VAO first, then bind and set vertex buffers, and configure their vertex attributes
 	gl.BindVertexArray(VAO)
@@ -138,6 +146,9 @@ main :: proc() {
 	// gl.STREAM_DRAW: the data is set only once and used by the GPU at most a few times.
 	// gl.STATIC_DRAW: the data is set only once and used many times.
 	// gl.DYNAMIC_DRAW: the data is changed a lot and used many times.
+
+	gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, EBO)
+	gl.BufferData(gl.ELEMENT_ARRAY_BUFFER, size_of(indices), &indices[0], gl.STATIC_DRAW)
 
 	// Linking vertex attributes. This is where we specify what part of our input data goes to which vertex attribute in the vertex shader.
 
@@ -174,13 +185,14 @@ main :: proc() {
 		gl.Uniform1f(time_location, current_time)
 
 		gl.BindVertexArray(VAO) // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
-		gl.DrawArrays(gl.TRIANGLES, 0, 3)
-		// glBindVertexArray(0); // no need to unbind it every time 
+		gl.DrawElements(gl.TRIANGLES, 6, gl.UNSIGNED_INT, nil)
+		gl.BindVertexArray(0) // no need to unbind it every time 
 
 		glfw.SwapBuffers(window)
 		glfw.PollEvents()
 	}
 	gl.DeleteVertexArrays(1, &VAO)
+	gl.DeleteBuffers(1, &EBO)
 	gl.DeleteBuffers(1, &VBO)
 	gl.DeleteProgram(shader_program)
 
